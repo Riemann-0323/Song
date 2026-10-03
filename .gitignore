@@ -5,3 +5,4 @@ renders/stills*/
 renders/hd*/
 renders/s[0-9]*/
 *.log
+renders/preview/
