@@ -24,14 +24,15 @@ for p in list(root.glob('src/**/*.js')) + [root / 'index.html']:
 text = ''.join(sorted(chars))
 print(f'{len(chars)} code points')
 
+# Subsets are OFL "Modified Versions", so they get new internal names (no Reserved Font Names).
 FONTS = {
-    'dela.woff2': ('DelaGothicOne-Regular.ttf', None),
-    'dot.woff2': ('DotGothic16-Regular.ttf', None),
-    'zen.woff2': ('ZenKakuGothicNew-Black.ttf', None),
-    'orbitron.woff2': ('Orbitron[wght].ttf', {'wght': 900}),
-    'mono.woff2': ('ShareTechMono-Regular.ttf', None),
+    'dela.woff2': ('DelaGothicOne-Regular.ttf', None, 'GT Dela'),
+    'dot.woff2': ('DotGothic16-Regular.ttf', None, 'GT Dot'),
+    'zen.woff2': ('ZenKakuGothicNew-Black.ttf', None, 'GT Zen'),
+    'orbitron.woff2': ('Orbitron[wght].ttf', {'wght': 900}, 'GT Orbitron'),
+    'mono.woff2': ('ShareTechMono-Regular.ttf', None, 'GT Mono'),
 }
-for out, (name, axes) in FONTS.items():
+for out, (name, axes, family) in FONTS.items():
     font = TTFont(src_dir / name)
     if axes:
         font = instancer.instantiateVariableFont(font, axes)
@@ -43,6 +44,16 @@ for out, (name, axes) in FONTS.items():
     s = subset.Subsetter(opts)
     s.populate(text=text)
     s.subset(font)
+    ps = family.replace(' ', '') + '-Subset'
+    for rec in font['name'].names:
+        if rec.nameID in (1, 16):
+            rec.string = family
+        elif rec.nameID in (4,):
+            rec.string = family + ' Subset'
+        elif rec.nameID in (6,):
+            rec.string = ps
+        elif rec.nameID in (3,):
+            rec.string = ps + ';subset'
     font.flavor = 'woff2'
     font.save(out_dir / out)
     print(out, (out_dir / out).stat().st_size // 1024, 'KB')
