@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>幽霊東京 Particle PV</title>
+<meta name="description" content="Unofficial fan-made neon particle PV for 幽霊東京 (Ghost City Tokyo) — Ayase feat. 初音ミク. WebGL2, real Tokyo rail & ward data.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DotGothic16&family=Orbitron:wght@900&family=Share+Tech+Mono&family=Zen+Kaku+Gothic+New:wght@900&display=swap">
+<style>
+  @font-face { font-family: "GT Dela"; src: url(assets/fonts/dela.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "GT Dot"; src: url(assets/fonts/dot.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "GT Zen"; font-weight: 900; src: url(assets/fonts/zen.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "GT Orbitron"; font-weight: 900; src: url(assets/fonts/orbitron.woff2) format("woff2"); font-display: block; }
+  @font-face { font-family: "GT Mono"; src: url(assets/fonts/mono.woff2) format("woff2"); font-display: block; }
+
+  :root {
+    --bg: #04020a;
+    --panel: #0d0918;
+    --line: #2a1f45;
+    --text: #e9e6ff;
+    --dim: #8b84b0;
+    --teal: #39ffe0;
+    --pink: #ff2a9d;
+  }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) { --bg: #04020a; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.4 "GT Mono", "Share Tech Mono", ui-monospace, monospace; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #000; }
+  #pv { display: block; max-width: 100%; max-height: 100%; aspect-ratio: 16 / 9; width: 100%; height: auto; object-fit: contain; background: #000; }
+  @media (min-aspect-ratio: 16/9) { #pv { width: auto; height: 100%; } }
+  #bar { display: flex; gap: 8px; align-items: center; padding: 8px 16px; background: var(--panel); border-top: 1px solid var(--line); flex-wrap: wrap; }
+  #bar button, .gate button { background: transparent; color: var(--text); border: 1px solid var(--line); padding: 6px 12px; font: inherit; cursor: pointer; letter-spacing: 1px; }
+  #bar button:hover, .gate button:hover { border-color: var(--teal); color: var(--teal); }
+  #rec.on { background: var(--pink); color: #000; border-color: var(--pink); }
+  #seek { flex: 1; min-width: 120px; accent-color: var(--teal); }
+  #time, #fps { color: var(--dim); white-space: nowrap; }
+  #fps { font-size: 12px; }
+  label { color: var(--dim); display: flex; gap: 4px; align-items: center; }
+  #offset { width: 64px; background: transparent; color: var(--text); border: 1px solid var(--line); padding: 4px; font: inherit; }
+  .gate { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; background: radial-gradient(ellipse at center, rgba(20,8,40,.75), rgba(0,0,0,.92)); z-index: 5; text-align: center; padding: 16px; }
+  .gate.hidden { display: none; }
+  .gate h1 { font: 400 clamp(40px, 9vw, 120px)/1 "GT Dela", "Dela Gothic One", sans-serif; margin: 0; color: #fff; text-shadow: 0 0 24px var(--teal), 0 0 60px var(--pink); }
+  .gate p { margin: 0; color: var(--dim); max-width: 640px; }
+  .gate .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  .gate .primary { border-color: var(--teal); color: var(--teal); font-size: 16px; padding: 10px 22px; }
+  #toast { position: absolute; left: 50%; bottom: 24px; transform: translateX(-50%); background: rgba(13,9,24,.92); border: 1px solid var(--teal); padding: 8px 16px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 6; max-width: calc(100% - 32px); }
+  #toast.show { opacity: 1; }
+  body.clean #bar { display: none; }
+  body.render #bar, body.render .gate, body.render #toast { display: none !important; }
+  body.render { background: #000; }
+  body.render #pv { width: 100vw; height: 100vh; max-width: none; max-height: none; }
+  @media (max-width: 640px) { #bar { padding: 8px; gap: 6px; } #fps, label span { display: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="pv" width="1920" height="1080"></canvas>
+  <div class="gate" id="gate">
+    <h1>幽霊東京</h1>
+    <p>GHOST CITY TOKYO — unofficial fan-made particle PV<br>Ayase feat. 初音ミク · 124 BPM · C minor</p>
+    <div class="row">
+      <button class="primary" id="gate-demo">▶ PLAY (demo beat)</button>
+      <button id="gate-file">♪ LOAD SONG FILE</button>
+      <button id="gate-silent">▶ VISUALS ONLY</button>
+    </div>
+    <p>Drop your own audio file and an .lrc lyrics file onto the page to sync. The demo beat is an original track at the song's tempo and key, not the song itself. Space = play/pause · ←/→ = seek · F = fullscreen · H = hide controls</p>
+  </div>
+  <div id="toast"></div>
+</div>
+<div id="bar">
+  <button id="play" title="Play / pause">▶</button>
+  <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Seek">
+  <span id="time">0:00 / 0:00</span>
+  <button id="load" title="Load your audio file">♪ SONG</button>
+  <button id="lrc" title="Load .lrc lyrics">詞 LRC</button>
+  <button id="demo" title="Original demo beat">DEMO</button>
+  <label title="Visual time = audio time + offset (seconds)"><span>OFFSET</span><input id="offset" type="number" step="0.05" value="0"></label>
+  <button id="rec" title="Record the canvas + audio to WebM">● REC</button>
+  <button id="full" title="Fullscreen">⛶</button>
+  <span id="fps"></span>
+  <input id="file" type="file" accept="audio/*" hidden>
+  <input id="lrcfile" type="file" accept=".lrc,.txt" hidden>
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>

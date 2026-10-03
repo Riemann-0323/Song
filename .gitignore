@@ -1,0 +1,7 @@
+node_modules/
+renders/*.mp4
+renders/*.wav
+renders/stills*/
+renders/hd*/
+renders/s[0-9]*/
+*.log
