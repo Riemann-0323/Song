@@ -61,7 +61,7 @@ export function buildBus(ctx, out) {
   comp.attack.value = 0.004;
   comp.release.value = 0.18;
   const master = ctx.createGain();
-  master.gain.value = 0.8;
+  master.gain.value = 0.62;
   comp.connect(master).connect(out);
 
   const input = ctx.createGain();
@@ -127,7 +127,7 @@ class Voice {
       sg.gain.value = send;
       g.connect(sg).connect(this.bus.verb);
     }
-    s.start(t, Math.random() * 1.5);
+    s.start(t, (t * 7.31) % 1.5);
     s.stop(t + a + d + 0.05);
   }
   snare(t, v = 1) {
@@ -535,15 +535,27 @@ export class AudioEngine {
   }
 }
 
-// offline render of the demo beat → 16-bit WAV bytes (used by tools/render.mjs)
+// offline render of the demo beat → 16-bit WAV bytes (used by tools/render.mjs).
+// Rendered in short overlapping chunks: one OfflineAudioContext holding every note of the
+// song would keep tens of thousands of idle nodes in the graph and crawl.
 export async function renderDemoWav(from, to, sampleRate = 48000) {
   const len = Math.ceil((to - from) * sampleRate);
-  const ctx = new OfflineAudioContext(2, len, sampleRate);
-  const bus = buildBus(ctx, ctx.destination);
-  const voice = new Voice(ctx, bus);
-  scheduleDemo(voice, from, to, -from);
-  const buf = await ctx.startRendering();
-  const L = buf.getChannelData(0), R = buf.getChannelData(1);
+  const L = new Float32Array(len), R = new Float32Array(len);
+  const CHUNK = BAR * 4, TAIL = 3;
+  for (let a = from; a < to; a += CHUNK) {
+    const b = Math.min(to, a + CHUNK);
+    const n = Math.ceil((b - a + TAIL) * sampleRate);
+    const ctx = new OfflineAudioContext(2, n, sampleRate);
+    const bus = buildBus(ctx, ctx.destination);
+    scheduleDemo(new Voice(ctx, bus), a, b, -a);
+    const buf = await ctx.startRendering();
+    const off = Math.round((a - from) * sampleRate);
+    const cl = buf.getChannelData(0), cr = buf.getChannelData(1);
+    for (let i = 0; i < n && off + i < len; i++) {
+      L[off + i] += cl[i];
+      R[off + i] += cr[i];
+    }
+  }
   const bytes = new ArrayBuffer(44 + len * 4);
   const v = new DataView(bytes);
   const str = (o, s) => [...s].forEach((c, i) => v.setUint8(o + i, c.charCodeAt(0)));
